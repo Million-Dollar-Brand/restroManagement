@@ -1,0 +1,73 @@
+tableManager/ (FastAPI + PostgreSQL Backend)
+├── app/                          # Main application package
+│   ├── __init__.py              # Package init (no circular imports)
+│   ├── main.py                  # FastAPI app + middleware + routes
+│   ├── config.py                # Environment-based settings
+│   ├── database.py              # SQLAlchemy engine & session
+│   │
+│   ├── models/                  # Database models
+│   │   ├── __init__.py
+│   │   ├── user.py              # User model (id, email, username, password, avatar, is_admin)
+│   │   └── product.py           # Product model (name, price, stock, category, image)
+│   │
+│   ├── schemas/                 # Pydantic validation schemas
+│   │   ├── __init__.py
+│   │   ├── user.py              # UserCreate, UserUpdate, UserResponse, Token
+│   │   └── product.py           # ProductCreate, ProductUpdate, ProductResponse, ProductList
+│   │
+│   ├── api/v1/                  # API version 1
+│   │   ├── __init__.py
+│   │   ├── router.py            # Routes aggregation
+│   │   └── endpoints/
+│   │       ├── __init__.py
+│   │       ├── auth.py          # /auth/* (register, login, refresh)
+│   │       ├── users.py         # /users/* (profile, avatar, CRUD)
+│   │       └── products.py      # /products/* (catalog, image upload)
+│   │
+│   ├── core/                    # Core utilities
+│   │   ├── __init__.py
+│   │   ├── security.py          # JWT tokens, password hashing (bcrypt)
+│   │   └── uploads.py           # File upload, validation, deletion
+│   │
+│   └── utils/                   # Additional utilities
+│       └── __init__.py
+│
+├── alembic/                     # Database migrations
+│   ├── versions/
+│   │   ├── 001_initial_migration.py  # Creates users & products tables
+│   │   └── .gitkeep
+│   ├── env.py                   # Migration environment config
+│   └── README                   # (auto-generated)
+│
+├── uploads/                     # Uploaded files storage
+│   ├── profiles/               # User avatars
+│   ├── products/               # Product images
+│   ├── temp/                   # Temporary uploads
+│   └── .gitkeep
+│
+├── docs/                       # Documentation (all markdown files)
+│   ├── README.md               # Project overview
+│   ├── BACKEND_PLAN.md         # Architecture & database schema
+│   ├── QUICKSTART.md           # Step-by-step setup
+│   ├── API_USAGE.md            # Endpoint reference & examples
+│   ├── ENVIRONMENT_VARS.md     # Configuration variables
+│   ├── DEPLOYMENT.md           # Production guide (Docker, Nginx, SSL)
+│   └── DOCS_INDEX.md           # Central documentation index
+│
+├── scripts/                    # Utility scripts
+│   ├── setup.sh               # Linux/macOS automated setup
+│   ├── setup.bat              # Windows automated setup
+│   ├── setup_check.py          # Validate environment
+│   ├── test_api.py             # Automated API tests
+│   └── create_admin.py         # Create admin user
+│
+├── .env                        # Your configuration (copy from .env.example)
+├── .env.example                # Configuration template
+├── .gitignore                  # Git ignore rules
+├── requirements.txt            # Python dependencies
+├── alembic.ini                 # Alembic configuration
+├── Dockerfile                  # Container definition
+├── docker-compose.yml          # Docker Compose setup
+├── .dockerignore               # Docker ignore rules
+│
+└── PROJECT_SUMMARY.md          # This summary

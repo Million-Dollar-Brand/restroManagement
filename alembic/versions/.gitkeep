@@ -1,0 +1,2 @@
+# Placeholder for migration files
+# Run 'alembic revision --autogenerate -m "initial"' to create initial migration
