@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from pydantic import BaseModel
 from app.core.tenant import get_tenant_session
-from app.models.tenant import Order, OrderItem, MenuItem, OrderStatus
+from app.models.tenant import Order, OrderItem, MenuItem, OrderStatus, Staff
 from app.core.tenant import require_role
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -124,6 +124,7 @@ async def create_order(
 
     # Create order items
     created_items = []
+    order_item_objects = []
     for menu_item, item_data in order_items:
         order_item = OrderItem(
             order_id=order.id,
@@ -133,6 +134,11 @@ async def create_order(
             notes=item_data.notes
         )
         session.add(order_item)
+        order_item_objects.append((order_item, menu_item, item_data))
+
+    await session.flush()
+
+    for order_item, menu_item, item_data in order_item_objects:
         created_items.append(OrderItemResponse(
             id=str(order_item.id),
             menu_item_id=str(menu_item.id),

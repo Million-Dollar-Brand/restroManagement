@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select
 from pydantic import BaseModel, Field
-from app.database import get_db, set_search_path
+from app.database import get_db, set_search_path, engine
 from app.core.tenant import require_super_admin, get_tenant_session
 from app.models.public import Restaurant, RestaurantManager
 from app.models.tenant import TenantBase, Staff, UserRole
@@ -40,22 +40,21 @@ class RestaurantResponse(BaseModel):
     created_at: str
 
 
-async def create_postgres_schema(schema_name: str, session: AsyncSession) -> None:
+async def create_postgres_schema(schema_name: str) -> None:
     """
     Create a new PostgreSQL schema.
 
     Args:
         schema_name: Name of the schema to create
-        session: Database session
 
     Raises:
         HTTPException: If schema creation fails
     """
     try:
-        await session.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
-        await session.commit()
+        async with engine.connect() as conn:
+            await conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
+            await conn.commit()
     except Exception as e:
-        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create schema: {str(e)}"
@@ -80,16 +79,16 @@ async def run_alembic_migration(schema_name: str) -> None:
         env = os.environ.copy()
         env["TENANT_SCHEMA"] = schema_name
 
-        # Run alembic upgrade head command
+        # Run alembic upgrade for tenant-specific migrations only
         # Note: This assumes alembic is configured to use the tenant schema
         # when TENANT_SCHEMA environment variable is set
         result = subprocess.run(
-            ["alembic", "upgrade", "head"],
+            ["alembic", "upgrade", "d12345678901"],
             cwd=os.getcwd(),
             env=env,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=120
         )
 
         if result.returncode != 0:
@@ -107,33 +106,29 @@ async def run_alembic_migration(schema_name: str) -> None:
         )
 
 
-async def create_tenant_tables(schema_name: str, session: AsyncSession) -> None:
+async def create_tenant_tables(schema_name: str) -> None:
     """
     Create tenant-specific tables in the new schema.
-    This is an alternative to running Alembic migrations.
+    Uses direct engine connection to avoid session transaction conflicts.
 
     Args:
         schema_name: Name of the schema
-        session: Database session
     """
     try:
-        # Set search path to new schema
-        await set_search_path(session, schema_name)
-
-        # Create tables for tenant models
-        async with session.begin():
-            # Create all tenant tables
-            await session.run_sync(TenantBase.metadata.create_all)
-
+        # Set schema on metadata for this creation
+        original_schema = TenantBase.metadata.schema
+        TenantBase.metadata.schema = schema_name
+        
+        async with engine.begin() as conn:
+            await conn.run_sync(TenantBase.metadata.create_all)
+        
+        # Reset schema to avoid affecting other operations
+        TenantBase.metadata.schema = original_schema
     except Exception as e:
-        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create tenant tables: {str(e)}"
         )
-    finally:
-        # Reset search path
-        await set_search_path(session, "public")
 
 
 @router.post("/restaurants", response_model=RestaurantResponse, status_code=status.HTTP_201_CREATED)
@@ -156,10 +151,16 @@ async def create_restaurant(
     # Generate IDs
     restaurant_id = uuid.uuid4()
     manager_id = uuid.uuid4()
-    schema_name = f"{settings.tenant_schema_prefix}{restaurant_id}"
+    schema_name = f"{settings.tenant_schema_prefix}{str(restaurant_id).replace('-', '_')}"
 
     try:
-        # Start transaction for public schema operations
+        # Create the PostgreSQL schema using engine
+        await create_postgres_schema(schema_name)
+
+        # Create tenant tables using engine
+        await create_tenant_tables(schema_name)
+
+        # Create restaurant and manager records in a transaction
         async with session.begin():
             # Check for duplicate email/username
             existing_manager = await session.execute(
@@ -173,15 +174,6 @@ async def create_restaurant(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Manager email or username already exists"
                 )
-
-            # Create the PostgreSQL schema
-            await create_postgres_schema(schema_name, session)
-
-            # Create tenant tables (alternative to Alembic - uncomment if preferred)
-            # await create_tenant_tables(schema_name, session)
-
-            # Run Alembic migrations on the new schema
-            await run_alembic_migration(schema_name)
 
             # Create restaurant record
             restaurant = Restaurant(
@@ -208,13 +200,9 @@ async def create_restaurant(
             # Update restaurant with manager reference
             restaurant.manager_id = manager_id
 
-        # Create initial staff user in tenant schema
-        async with session.begin():
-            await set_search_path(session, schema_name)
-
-            # Create the manager as staff in tenant schema
+            # Create initial staff user in tenant schema
             tenant_manager = Staff(
-                id=manager_id,  # Same ID as public manager
+                id=manager_id,
                 email=restaurant_data.manager_email,
                 username=restaurant_data.manager_username,
                 hashed_password=get_password_hash(restaurant_data.manager_password),
@@ -223,9 +211,6 @@ async def create_restaurant(
                 is_active=True
             )
             session.add(tenant_manager)
-
-        # Reset search path
-        await set_search_path(session, "public")
 
         return RestaurantResponse(
             id=str(restaurant_id),
@@ -239,12 +224,16 @@ async def create_restaurant(
     except HTTPException:
         raise
     except Exception as e:
-        # Clean up on failure
+        # Clean up on failure - drop the schema we created
         try:
-            async with session.begin():
-                await session.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
-        except:
-            pass  # Ignore cleanup errors
+            await session.rollback()
+            await session.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+            await session.commit()
+        except Exception:
+            try:
+                await session.rollback()
+            except Exception:
+                pass
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

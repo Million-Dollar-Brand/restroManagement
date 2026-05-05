@@ -7,7 +7,7 @@ This is a comprehensive FastAPI-based backend system for a multi-tenant restaura
 ## Architecture
 
 ### Multi-Tenancy Approach
-- **Schema-per-tenant**: Each restaurant gets a dedicated PostgreSQL schema (`tenant_<restaurant_id>`)
+- **Schema-per-tenant**: Each restaurant gets a dedicated PostgreSQL schema (`tenant_<restaurant_id>` with hyphens in UUID replaced by underscores)
 - **Shared database**: All tenants share the same PostgreSQL database instance
 - **Dynamic routing**: FastAPI middleware automatically routes requests to the correct tenant schema based on JWT tokens
 
@@ -47,7 +47,7 @@ Registry of all restaurants in the system.
 | id | UUID | PRIMARY KEY | Unique restaurant identifier |
 | name | VARCHAR(100) | NOT NULL | Restaurant name |
 | description | TEXT | NULL | Restaurant description |
-| schema_name | VARCHAR(100) | UNIQUE, NOT NULL | PostgreSQL schema name (e.g., `tenant_123`) |
+| schema_name | VARCHAR(100) | UNIQUE, NOT NULL | PostgreSQL schema name (e.g., `tenant_d539a8f3_baba_41c6_bbc4_f431c7acd3c7`) |
 | is_active | BOOLEAN | NOT NULL, DEFAULT true | Restaurant status |
 | manager_id | UUID | FOREIGN KEY → restaurant_managers.id | Reference to restaurant manager |
 | created_at | TIMESTAMP | NOT NULL, DEFAULT now() | Creation timestamp |
@@ -68,7 +68,7 @@ Users who manage specific restaurants (stored in public schema).
 | created_at | TIMESTAMP | NOT NULL, DEFAULT now() | Creation timestamp |
 | updated_at | TIMESTAMP | NOT NULL, DEFAULT now() | Last update timestamp |
 
-### Tenant Schemas (`tenant_<restaurant_id>`)
+### Tenant Schemas (`tenant_<restaurant_id>` with hyphens replaced by underscores)
 
 Each restaurant has its own schema containing restaurant-specific data.
 
@@ -371,7 +371,7 @@ alembic upgrade head
 ### Tenant Schema Migrations
 ```bash
 # Set environment variable for tenant schema
-export TENANT_SCHEMA=tenant_12345678-1234-1234-1234-123456789012
+export TENANT_SCHEMA=tenant_d539a8f3_baba_41c6_bbc4_f431c7acd3c7
 alembic revision -m "Add tenant feature"
 alembic upgrade head
 ```

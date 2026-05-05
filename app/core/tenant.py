@@ -70,7 +70,7 @@ async def get_tenant_session(
     else:
         # Tenant user - switch to their schema
         tenant_id = user_info["tenant_id"]
-        schema_name = f"{settings.tenant_schema_prefix}{tenant_id}"
+        schema_name = f"{settings.tenant_schema_prefix}{tenant_id.replace('-', '_')}"
 
         # Verify the tenant exists
         result = await session.execute(
