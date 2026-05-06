@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # File Uploads
-    upload_dir: str = "uploads/"
+    upload_dir: str = "/tmp/uploads"
     max_file_size: int = 5242880  # 5MB
     allowed_extensions: str = "jpg,jpeg,png,webp"
 
