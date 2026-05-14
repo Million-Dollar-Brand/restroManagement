@@ -10,20 +10,19 @@ Base = declarative_base()
 # Only create async engine if not running migrations
 # Only create async engine if not running migrations
 if os.environ.get("ALEMBIC_RUNNING") != "1":
-    # Ensure database URL has sslmode=require for Neon
+    # Ensure database URL has ssl=require for Neon (asyncpg compatibility)
     db_url = settings.database_url
-    if "sslmode" not in db_url:
+    if "ssl=" not in db_url and "sslmode" not in db_url:
         if "?" in db_url:
-            db_url += "&sslmode=require"
+            db_url += "&ssl=require"
         else:
-            db_url += "?sslmode=require"
+            db_url += "?ssl=require"
     
     # Async engine for PostgreSQL (Neon requires SSL)
     engine: AsyncEngine = create_async_engine(
         db_url,
         echo=False,  # Set to True for SQL query logging
         pool_pre_ping=True,
-        # For asyncpg, sslmode in URL is sufficient; no need for connect_args
     )
     AsyncSessionLocal = sessionmaker(
         bind=engine,
