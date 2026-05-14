@@ -5,12 +5,12 @@ import os
 class Settings(BaseSettings):
     """Application configuration from environment variables"""
 
-    # Database
-    database_url: str = "postgresql+asyncpg://postgres:passWood2@localhost/tablemanager"
+    # Database - must be provided via environment variable in production
+    database_url: str
     tenant_schema_prefix: str = "tenant_"
 
     # Security
-    secret_key: str = "your-super-secret-key-change-this-in-production"
+    secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
