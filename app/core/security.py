@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 from app.config import settings
 
-# Modern password hashing context (recommended for new applications)
-pwd_context = PasswordHash.recommended()
+# Force bcrypt explicitly to avoid Argon2 dependency
+pwd_context = PasswordHash([BcryptHasher()])
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
