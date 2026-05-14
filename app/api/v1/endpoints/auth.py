@@ -170,6 +170,44 @@ async def register_super_admin(
     )
 
 
+@router.post("/login", response_model=Token)
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Login endpoint for Super Admin (primary auth flow).
+    
+    This endpoint matches the standard OAuth2 password flow expected by
+    Swagger UI's Authorize button and common API clients.
+    
+    - **username**: Your username
+    - **password**: Your password
+    
+    Returns access_token and refresh_token
+    """
+    user = await authenticate_super_admin(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token(
+        data={"sub": user.username},
+        tenant_id=None,
+        role=None
+    )
+    refresh_token = create_refresh_token(data={"sub": user.username})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
+
+
 @router.post("/super-admin/login", response_model=Token)
 async def super_admin_login(
     form_data: OAuth2PasswordRequestForm = Depends(),
