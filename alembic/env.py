@@ -10,6 +10,10 @@ os.environ["ALEMBIC_RUNNING"] = "1"
 # this is the Alembic Config object
 config = context.config
 
+# Override sqlalchemy.url from app settings to ensure consistency
+from app.config import settings
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("+asyncpg", ""))
+
 # Interpret the config file for Python logging
 fileConfig(config.config_file_name)
 

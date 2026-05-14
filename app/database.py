@@ -8,21 +8,22 @@ import os
 Base = declarative_base()
 
 # Only create async engine if not running migrations
+# Only create async engine if not running migrations
 if os.environ.get("ALEMBIC_RUNNING") != "1":
     # Async engine for PostgreSQL
     engine: AsyncEngine = create_async_engine(
         settings.database_url,
         echo=False,  # Set to True for SQL query logging
         pool_pre_ping=True,
+        connect_args={
+            "ssl": True,  # Forces asyncpg to connect securely to Neon
+        }
     )
-
-    # Async session factory
     AsyncSessionLocal = sessionmaker(
         bind=engine,
         class_=AsyncSession,
         expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
+        autoflush=False
     )
 else:
     # For migrations, these won't be used
